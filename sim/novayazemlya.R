@@ -544,8 +544,36 @@ apply(simplify2array(res$params_tab_list), 1:2, sd) %>% round(3)
 apply(simplify2array(res$ressum_tab_list), 1:2, sd) %>% round(3)
 
 # plot
-gg_4 <- res$longdata_list[[1]][c(1:n_tr, (n + n_pred) + 1:n,
-                                 2*(n + n_pred) + 1:n, 3*(n + n_pred) + 1:n),] %>%
+res1 <- readRDS(paste0(path, "/sim/novayazemlya_20th.RDS")) 
+
+## Observations + UQ
+gg_4 <- res1$predres %>%
+  select(easting, northing, coverB, coverN, coverI) %>%
+  pivot_longer(-c(easting, northing),
+               values_to = "cover",
+               names_to = "model") %>%
+  mutate(model = factor(model,
+                        levels = c("coverB", "coverN", "coverI"),
+                        labels = c("BORA-GP", "NNGP", "Barrier SGF"))) %>%
+  filter(cover == 0) %>% 
+  ggplot() +
+  geom_point(aes(easting, northing), size = 1) +
+  geom_point(data = data.frame(res1$longdata[1:n_tr, c(1:2,4)], 
+                               model = "Observations"), 
+             aes(easting, northing, color = orgyhat), size = 1) + 
+  scale_color_distiller(palette = "RdYlBu", na.value = "transparent", 
+                        limits = c(0, max(arctic_utm$sss))) +
+  labs(col = "SSS\n(psu)", x = "", y = "") +
+  geom_sf(data = rest_utm) +
+  facet_wrap(~ factor(model, 
+                      levels = c("Observations", "BORA-GP", 
+                                 "NNGP", "Barrier SGF")), nrow = 1) +
+  theme(plot.margin = margin(t = -20, l = -5, r = 0, b = -10),
+        legend.position = "none")
+
+## Observation + Prediction
+gg_4_supp <- res1$longdata[c(1:n_tr, (n + n_pred) + 1:n,
+                             2*(n + n_pred) + 1:n, 3*(n + n_pred) + 1:n),] %>%
   ggplot() +
   geom_point(aes(easting, northing, color = orgyhat), size = 1) +
   geom_sf(data = rest_utm) +
@@ -553,24 +581,41 @@ gg_4 <- res$longdata_list[[1]][c(1:n_tr, (n + n_pred) + 1:n,
                                         "NNGP", "Barrier SGF"),
                       labels = c("Observations", "BORA-GP",
                                  "NNGP", "Barrier SGF")),
-             nrow = 1) +
-  scale_color_distiller(palette = "RdYlBu", na.value = "transparent") +
+             nrow = 2) +
+  scale_color_distiller(palette = "RdYlBu", na.value = "transparent", 
+                        limits = c(0, max(arctic_utm$sss))) +
   labs(col = "SSS\n(psu)", x = "", y = "") +
-  theme(plot.margin = margin(t = -5, l = -10, r = 2, b = 0),
-        legend.position = "right")
+  theme(plot.margin = margin(t = 1, l = -10, r = 0, b = -10),
+        legend.margin = margin(b = 0, r = 1, t = 0, l = 0))
+# for (ext in extension) {
+#   ggsave(plot = gg_4_supp,
+#          paste0(path, "plots/novayazemlya_pred_supp", ext),
+#          width = 8, height = 5)
+# }
 
 ## near Novaya Zemlya
-gg_novaya <- res$longdata_nb_list[[1]] %>%
-  filter(model != "SMAP measurements") %>%
+res2 <- readRDS(paste0(path, "/sim/novayazemlya_1st.RDS"))
+N <- nrow(res2$longdata_nb)
+N1 <- N/4
+N2 <- N1 - n_pred
+longdata_nb_list <- res2$longdata_nb %>% 
+  arrange(factor(model, levels = c("SMAP measurements", "BORA-GP", "NNGP", "Barrier SGF")))
+gg_novaya <- longdata_nb_list[c(N1 + N2 + 1:n_pred, 
+                                2*N1 + N2 + 1:n_pred, 
+                                3*N1 + N2 + 1:n_pred),] %>%
   ggplot() +
   geom_point(aes(easting, northing, color = vals)) +
+  geom_contour(aes(x = easting, y = northing, z = vals), 
+               color = "white", 
+               breaks = c(1, 35)) + 
   geom_sf(data = bdry_utm) +
   facet_wrap(~ factor(model, levels = c("BORA-GP", "NNGP", "Barrier SGF")),
              nrow = 1) +
-  scale_color_distiller(palette = "RdYlBu", na.value = "transparent") +
+  scale_color_distiller(palette = "RdYlBu", na.value = "transparent", 
+                        limits = c(0, max(arctic_utm$sss))) +
   labs(col = "SSS\n(psu)", x = "", y = "") +
-  theme(plot.margin = margin(t = -15, l = -30, r = -50, b = -10),
-        legend.margin = margin(b = 0, r = -10, t = 0, l = -1))
+  theme(plot.margin = margin(t = -15, l = -10, r = -50, b = -10),
+        legend.margin = margin(b = 0, r = 0, t = 0, l = -1))
 
 ## prediction comparison near Novaya Zemlya
 nngp_rmspe <- sapply(res$ressum_nb_tab_list, function(x) x[1,"NNGP"])
@@ -605,15 +650,15 @@ gg_mape <- data.frame(alternative = rep(rep(c("NNGP", "Barrier SGF"), each = rpl
   labs(x = "", y = "Increases in MAPE from BORA-GP") +
   scale_fill_manual(values = c("NNGP" = "#97872E", "Barrier SGF" = "#184E60")) +
   scale_y_continuous(labels = scales::label_percent()) +
-  theme(plot.margin = margin(t = -15, l = 2, r = -10, b = -10),
+  theme(plot.margin = margin(t = -15, l = 10, r = -10, b = -10),
         legend.position = "none")
 
-gg_nb <- ggpubr::ggarrange(gg_mape, gg_novaya, nrow = 1, widths = c(1, 2.5))
+gg_nb <- ggpubr::ggarrange(gg_mape, gg_novaya, nrow = 1, widths = c(1.2, 2.5))
 gg_4_zoom <- ggpubr::ggarrange(gg_4, gg_nb, nrow = 2)
 # for (ext in extension) {
 #   ggsave(plot = gg_4_zoom,
 #          paste0(path, "plots/novayazemlya_pred", ext),
-#          width = 11, height = 5.5)
+#          width = 10, height = 5)
 # }
 
 # different neighbors

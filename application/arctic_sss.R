@@ -209,20 +209,6 @@ burn <- 5000
 thin <- 20
 save <- (n.samples - burn)/thin
 
-# #------#
-# # INLA #
-# #------#
-# # mesh
-# # it works with long/lat but does not work with utm projection required for proper spatial analysis 
-# mesh <- inla.mesh.2d(loc = coords_tr,
-#                      # boundary = inla.sp2segment(sf::as_Spatial(arctic_utm)),
-#                      interior = inla.sp2segment(sf::as_Spatial(arctic_utm)),
-#                      max.edge = 100,
-#                      offset = 200)
-# # Killed
-# # Error in fmesher.read(prefix, "manifold") : 
-# #   File '/tmp/RtmpwD6rqV/fmesherdc7205d4ad.manifold' does not exist.
-
 # #---------#
 # # BORA-GP #
 # #---------#
@@ -504,7 +490,7 @@ m.s_mini <- spNNGP(y_tr_mini ~ 1, coords = coords_tr_mini, starting = starting,
                    method = "response", n.neighbors = m,
                    tuning = tuning, priors = priors, cov.model = "matern",
                    n.samples = 1, n.omp.threads = 20, ord = ord_mini,
-                   return.neighbor.info = F, verbose = TRUE)
+                   return.neighbor.info = TRUE, verbose = FALSE)
 Ctilde <- boraGP:::create_Ctilde(coords = coords_tr_mini,
                                  neighbor.info = m.s_mini$neighbor.info,  
                                  sig_sq = 1,
