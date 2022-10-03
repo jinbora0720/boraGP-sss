@@ -206,7 +206,7 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 # MCMC
 n.samples <- 25000
 burn <- 5000
-thin <- 20
+thin <- 2
 save <- (n.samples - burn)/thin
 
 # #---------#
@@ -269,7 +269,6 @@ save <- (n.samples - burn)/thin
 #                        nn.indx = barrier_nn.indx,
 #                        nn.indx.lu = barrier_nn.indx.lu,
 #                        ord = ord)
-# 
 # set.seed(123)
 # barrier_m.s <- spNNGP(y_tr ~ 1, coords = coords_tr, starting = starting,
 #                       method = "response", n.neighbors = m,
@@ -288,23 +287,30 @@ save <- (n.samples - burn)/thin
 #              barrier_nn_time = first_time + second_time,
 #              barrier_p.s = barrier_p.s),
 #         paste0(path, "application/arctic_sss_BORAGP.RDS"))
-
-BRGPres <- readRDS(paste0(path, "application/arctic_sss_BORAGP.RDS"))
+# 
+# ystarBRGP <- rowMeans(barrier_p.s$p.y.0)
+# yquantBRGP <- apply(barrier_p.s$p.y.0, 1,
+#                     function(x) quantile(x, probs = c(0.025, 0.975)))
+# orgystarBRGP0 <- rowMeans(barrier_p.s$p.y.0*sd_sss + m_sss)
+# orgystarBRGP <- ifelse(orgystarBRGP0 < 0, 0, orgystarBRGP0)
+# 
+# yess <- apply(barrier_p.s$p.y.0, 1, posterior::ess_basic)
+# saveRDS(list(barrier_m.s = barrier_m.s,
+#              barrier_nb = barrier_nb,
+#              barrier_nn_time = first_time + second_time,
+#              orgystarBRGP = orgystarBRGP, 
+#              yess = yess),
+#         paste0(path, "application/arctic_sss_BORAGP_processed.RDS"))
 
 # posterior summary
-timeBRGP <- BRGPres$barrier_m.s$run.time + BRGPres$barrier_p.s$run.time
+BRGPres <- readRDS(paste0(path, "application/arctic_sss_BORAGP_processed.RDS"))
 betaBRGP <- mean(BRGPres$barrier_m.s$p.beta.samples[burn + thin*1:save])
 thetaBRGP <- colMeans(BRGPres$barrier_m.s$p.theta.samples[burn + thin*1:save,])
+orgystarBRGP <- BRGPres$orgystarBRGP
 
-ystarBRGP <- rowMeans(BRGPres$barrier_p.s$p.y.0)
-yquantBRGP <- apply(BRGPres$barrier_p.s$p.y.0, 1,
-                    function(x) quantile(x, probs = c(0.025, 0.975)))
-orgystarBRGP0 <- rowMeans(BRGPres$barrier_p.s$p.y.0*sd_sss + m_sss)
-orgystarBRGP <- ifelse(orgystarBRGP0 < 0, 0, orgystarBRGP0)
-
-# #------#
-# # NNGP #
-# #------#
+#------#
+# NNGP #
+#------#
 # set.seed(123)
 # m.s <- spNNGP(y_tr ~ 1, coords = coords_tr, starting = starting,
 #               method = "response", n.neighbors = m,
@@ -320,32 +326,35 @@ orgystarBRGP <- ifelse(orgystarBRGP0 < 0, 0, orgystarBRGP0)
 # saveRDS(list(m.s = m.s, nninfo = nninfo, p.s = p.s),
 #         paste0(path, "application/arctic_sss_NNGP.RDS"))
 
-NNGPres <- readRDS(paste0(path, "application/arctic_sss_NNGP.RDS"))
+# ystarNNGP <- rowMeans(p.s$p.y.0)
+# yquantNNGP <- apply(p.s$p.y.0, 1,
+#                     function(x) quantile(x, probs = c(0.025, 0.975)))
+# orgystarNNGP0 <- rowMeans(p.s$p.y.0*sd_sss + m_sss)
+# orgystarNNGP <- ifelse(orgystarNNGP0 < 0, 0, orgystarNNGP0)
+# 
+# saveRDS(list(m.s = m.s, nninfo = nninfo, 
+#              orgystarNNGP = orgystarNNGP),
+#         paste0(path, "application/arctic_sss_NNGP_processed.RDS"))
 
 # posterior summary
-timeNNGP <- NNGPres$m.s$run.time + NNGPres$p.s$run.time
+NNGPres <- readRDS(paste0(path, "application/arctic_sss_NNGP_processed.RDS"))
 betaNNGP <- mean(NNGPres$m.s$p.beta.samples[burn + thin*1:save])
 thetaNNGP <- colMeans(NNGPres$m.s$p.theta.samples[burn + thin*1:save,])
-
-ystarNNGP <- rowMeans(NNGPres$p.s$p.y.0)
-yquantNNGP <- apply(NNGPres$p.s$p.y.0, 1,
-                    function(x) quantile(x, probs = c(0.025, 0.975)))
-orgystarNNGP0 <- rowMeans(NNGPres$p.s$p.y.0*sd_sss + m_sss)
-orgystarNNGP <- ifelse(orgystarNNGP0 < 0, 0, orgystarNNGP0)
+orgystarNNGP <- NNGPres$orgystarNNGP
 
 # ESS: effective sample size
-betaess <- posterior::ess_basic(
-  BRGPres$barrier_m.s$p.beta.samples[burn + thin*1:save]
-  )
-thetaess <- posterior::ess_basic(
-  BRGPres$barrier_m.s$p.theta.samples[burn + thin*1:save,1]*
-    BRGPres$barrier_m.s$p.theta.samples[burn + thin*1:save,3]^2
-)
-tausqess <- posterior::ess_basic(
-  BRGPres$barrier_m.s$p.theta.samples[burn + thin*1:save,2]
-  )
-yess <- apply(BRGPres$barrier_p.s$p.y.0, 1, posterior::ess_basic)
-yess %>% summary()
+## minimum ESS required for a vector of length p, 
+## with 95% confidence and 5% tolerance
+mcmcse::minESS(p = 3, alpha = 0.05, eps = 0.05)
+
+## multivariate ESS
+mcmcse::multiESS(cbind(BRGPres$barrier_m.s$p.beta.samples[burn + thin*(1:save)],
+                       BRGPres$barrier_m.s$p.theta.samples[burn + thin*(1:save),2], 
+                       BRGPres$barrier_m.s$p.theta.samples[burn + thin*(1:save),1]*
+                         BRGPres$barrier_m.s$p.theta.samples[burn + thin*(1:save),3]^2))
+
+## univariate ESS for predictive samples
+BRGPres$yess %>% summary()
 
 # convergence
 # trace plots and running mean
@@ -362,7 +371,7 @@ convp <- data.frame(tau_sq = c(cumsum(BRGPres$barrier_m.s$p.theta.samples[burn +
   pivot_longer(-c(what, iter), values_to = "draw", names_to = "param") %>%
   ggplot() +
   geom_line(aes(iter, draw)) +
-  facet_grid(factor(param, labels = c(bquote(beta[0]), bquote(tau^2), bquote(sigma^2*phi^{2*nu}))) ~ what, 
+  facet_grid(factor(param, labels = c(bquote(beta[0]), bquote(tau^2), bquote(sigma^2*phi^{2*nu}))) ~ what,
              labeller = label_parsed,
              scales = "free_y") +
   labs(x = "Iterations", y = "") +
@@ -440,23 +449,23 @@ gg_range <- alldata %>%
         legend.position = "right")
 
 # covariance approximation near Canadian Archipelago
-coords_tr_mini <- coords_tr %>% 
-  filter(easting > -1450, easting < -200, 
-         northing > 11200, northing < 12500) 
-idx_mini <- coords_tr %>% 
-  mutate(idx = 1:n_tr) %>% 
-  filter(easting > -1450, easting < -200, 
-         northing > 11200, northing < 12500) %>% 
+coords_tr_mini <- coords_tr %>%
+  filter(easting > -1450, easting < -200,
+         northing > 11200, northing < 12500)
+idx_mini <- coords_tr %>%
+  mutate(idx = 1:n_tr) %>%
+  filter(easting > -1450, easting < -200,
+         northing > 11200, northing < 12500) %>%
   pull(idx)
 y_tr_mini <- sss_utm2$ssss[idx_mini]
-coords_tr_mini %>% 
-  ggplot() + 
+coords_tr_mini %>%
+  ggplot() +
   geom_point(aes(easting, northing)) +
   geom_sf(data = arctic_utm)
 ord_mini <- order(-coords_tr_mini[,1]*coords_tr_mini[,2])
-coords_pred_mini <- coords_pred %>% 
-  filter(easting > -1450, easting < -200, 
-         northing > 11200, northing < 12500) 
+coords_pred_mini <- coords_pred %>%
+  filter(easting > -1450, easting < -200,
+         northing > 11200, northing < 12500)
 
 # barrier_nb_mini <- barrier_neighbor(coords = coords_tr_mini,
 #                                     coords.0 = coords_pred_mini,
@@ -473,7 +482,7 @@ coords_pred_mini <- coords_pred %>%
 #                                                  nonref_window = NULL,
 #                                                  ref_fill = TRUE,
 #                                                  nonref_fill = TRUE))
-# saveRDS(barrier_nb_mini, 
+# saveRDS(barrier_nb_mini,
 #         paste0(path, "application/arctic_sss_barrier_nb_mini.RDS"))
 barrier_nb_mini <- readRDS(paste0(path, "application/arctic_sss_barrier_nb_mini.RDS"))
 barrier_n.indx_mini <- barrier_nb_mini$barrier_n.indx
@@ -492,7 +501,7 @@ m.s_mini <- spNNGP(y_tr_mini ~ 1, coords = coords_tr_mini, starting = starting,
                    n.samples = 1, n.omp.threads = 20, ord = ord_mini,
                    return.neighbor.info = TRUE, verbose = FALSE)
 Ctilde <- boraGP:::create_Ctilde(coords = coords_tr_mini,
-                                 neighbor.info = m.s_mini$neighbor.info,  
+                                 neighbor.info = m.s_mini$neighbor.info,
                                  sig_sq = 1,
                                  phi = thetaNNGP[3],
                                  nu = thetaNNGP[4],
@@ -508,7 +517,7 @@ barrier_Ctilde <- boraGP:::create_Ctilde(coords = coords_tr_mini,
 nnidx_pred_mini <- RANN::nn2(coords_tr_mini, coords_pred_mini, k = m)$nn.idx
 barrier_nn.indx.0_ord_mini <- list()
 for (i in 1:nrow(coords_pred_mini)) {
-  barrier_nn.indx.0_ord_mini[[i]] <- 
+  barrier_nn.indx.0_ord_mini[[i]] <-
     order(ord_mini)[barrier_nb_mini$barrier_nn.indx.0_list[[i]]]
 }
 coords_tr_ord_mini <- coords_tr_mini[ord_mini,]
@@ -541,21 +550,21 @@ boraGP_cov <- boraGP:::NGPcov_m(v1 = coords_pred_mini[j,],
                                 coords.0 = coords_pred_mini,
                                 nn.indx.0_ord = barrier_nn.indx.0_ord_mini)
 
-gg_cov <- tibble(rbind(coords_tr_mini, coords_pred_mini), 
-           SMAP = rep(NA, nrow(coords_tr_mini) + nrow(coords_pred_mini)), 
-           NNGP = NNGP_cov, 
+gg_cov <- tibble(rbind(coords_tr_mini, coords_pred_mini),
+           SMAP = rep(NA, nrow(coords_tr_mini) + nrow(coords_pred_mini)),
+           NNGP = NNGP_cov,
            "BORA-GP" = boraGP_cov) %>%
-  pivot_longer(-c(easting, northing), values_to = "cor", names_to = "what") %>% 
-  filter(cor > 0.1) %>% 
+  pivot_longer(-c(easting, northing), values_to = "cor", names_to = "what") %>%
+  filter(cor > 0.1) %>%
   ggplot() +
-  facet_grid(~ factor(what, levels = c("SMAP", "BORA-GP", "NNGP"))) + 
+  facet_grid(~ factor(what, levels = c("SMAP", "BORA-GP", "NNGP"))) +
   geom_point(aes(easting, northing, col = cor)) +
   geom_point(data = data.frame(coords_tr_mini[ptnn, ], what = "SMAP"),
              aes(easting, northing), shape = 19, color = "#888888") +
   geom_point(data = data.frame(coords_tr_mini[barrier_ptnn,], what = "SMAP"),
              aes(easting, northing), shape = 17, color = "#DC3220") +
   scale_color_scico(palette = "batlow", limits = c(0.1, 1),
-                    na.value = "transparent") + 
+                    na.value = "transparent") +
   geom_point(data = coords_pred_mini[j,], aes(easting, northing),
              col = "black", size = 2) +
   geom_sf(data = ice_utm, fill = "skyblue") +
