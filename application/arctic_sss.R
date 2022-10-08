@@ -389,6 +389,9 @@ omg_utm <- omg %>%
   st_as_sf(coords = c("long", "lat"),
            crs = 4326) %>%
   st_transform(crs = crs)
+omg_utm <- omg_utm[grep("2020-08-", omg_utm$date),]
+dlt_rm <- unlist(st_intersects(barrier_utm, omg_utm$geometry)) %>% unique()
+omg_utm <- omg_utm[-dlt_rm,]
 
 gg_omg <- tibble(coords_all, sss = c(orgy_tr, rep(NA, n_pred))) %>%
   ggplot() +
@@ -413,14 +416,15 @@ coords_omg <- omg_utm %>%
   st_coordinates() %>%
   as.data.frame() %>%
   rename(easting = X, northing = Y)
+
 omg_nn <- nn2(coords_pred, coords_omg, k = 1)
 pred_matched <- omg_nn$nn.idx
 
-biasBRGP <- orgystarBRGP[pred_matched] - omg_utm$sss
-biasNNGP <- orgystarNNGP[pred_matched] - omg_utm$sss
+absbiasBRGP <- abs(orgystarBRGP[pred_matched] - omg_utm$sss)
+absbiasNNGP <- abs(orgystarNNGP[pred_matched] - omg_utm$sss)
 
-mean(biasBRGP); sd(biasBRGP)
-mean(biasNNGP); sd(biasNNGP)
+median(absbiasBRGP); sd(absbiasBRGP)
+median(absbiasNNGP); sd(absbiasNNGP)
 
 # plot
 alldata <- tibble(coords_all, Observed = c(orgy_tr, rep(NA, n_pred)),
