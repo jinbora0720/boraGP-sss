@@ -3,10 +3,10 @@ BORA-GP
 
 # Work flow to reproduce manuscript results
 
--   Manuscript available at https://doi.org/10.48550/arXiv.2112.11870.
+-   Manuscript available at https://arxiv.org/abs/2210.03913.
 -   Section "BORA-GP"
     -   /cov/slidingdoors.R 
--   Section “Simulation studies”
+-   Section “Model comparisons”
     -   /sim/novayazemlya.R for "Novaya Zemlya"
     -   /sim/horseshoe.R for "Modified horseshoe"
     -   /sim/faults.R for "Faults"
