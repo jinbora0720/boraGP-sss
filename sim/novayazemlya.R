@@ -115,12 +115,12 @@ n_pred <- nrow(coords_pred)
 # number of neighbors
 m <- 15
 
-# ########
-# # MCMC #
-# ########
+########
+# MCMC #
+########
 rplc <- 30
-# n.samples <- 15000
-# burn <- 10000
+n.samples <- 15000
+burn <- 10000
 set.seed(720)
 seedlist <- c(6, sample.int(100, rplc-1))
 seedlist[20] <- 101
@@ -156,7 +156,7 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 # # save results
 # params_tab_list = ressum_tab_list = ressum_nb_tab_list =
 #   longdata_nb_list = longdata_list <- list()
-# time_barrier_tab = neg_tab <- matrix(0, rplc, ncol = 3)
+# time_barrier_tab = neg_tab = time_mesh_tab <- matrix(0, rplc, ncol = 3)
 # 
 # for (ii in 1:rplc) {
 #   seed <- seedlist[ii]
@@ -187,11 +187,12 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 #   # INLA #
 #   #------#
 #   # mesh
+# time_mesh <- system.time({
 #   mesh <- inla.mesh.2d(loc = coords_tr,
 #                        interior = inla.sp2segment(sf::as_Spatial(rest_utm)),
 #                        max.edge = 100,
 #                        offset = 200)
-# 
+#   
 #   # barrier model
 #   tl <- length(mesh$graph$tv[,1])
 #   posTri <- matrix(0, tl, 2)
@@ -205,7 +206,7 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 #   barrier.triangles <- unlist(st_intersects(rest_utm, posTri_sf))
 #   poly.barrier <- inla.barrier.polygon(mesh, barrier.triangles)
 #   # plot(poly.barrier, col = "gray")
-# 
+#   
 #   # model
 #   # connect observations to mesh nodes
 #   A.obs <- inla.spde.make.A(mesh, loc = as.matrix(coords_tr))
@@ -214,7 +215,7 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 #                                        data.frame(int = rep(1,n_tr))), # intercept
 #                         A = list(A.obs, 1),
 #                         remove.unused = FALSE, tag = "obs")
-# 
+#   
 #   proj.pred <- inla.mesh.projector(mesh,
 #                                    loc = as.matrix(rbind(coords_tt, coords_pred)))
 #   A.pred <- inla.spde.make.A(mesh, loc = proj.pred$loc)
@@ -224,12 +225,16 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 #                                         data.frame(int = rep(1,n_tt+n_pred))),
 #                          tag = "pred")
 #   stk <- inla.stack(stk.obs, stk.pred)
-# 
+#   
 #   barrier.model <- inla.barrier.pcmatern(mesh,
 #                                          barrier.triangles = barrier.triangles,
 #                                          prior.range = c(sqrt(8)/phi.low, 0.99),# P(range < sqrt(8)/phi.low) = 0.99
 #                                          prior.sigma = c(1, 0.05))              # P(sigma > 1) = 0.05
 #   formula <- y ~ -1 + int + f(s, model = barrier.model)
+# })
+# 
+# time_mesh_tab[ii,] <- as.numeric(time_mesh)[1:3]
+# 
 #   timeinla <- system.time(
 #     inlares <- inla(formula,
 #                     data = inla.stack.data(stk),
@@ -528,16 +533,28 @@ priors <- list("phi.Unif" = c(phi.low, phi.high),
 #              ressum_nb_tab_list = ressum_nb_tab_list,
 #              longdata_list = longdata_list,
 #              longdata_nb_list = longdata_nb_list,
-#              time_barrier_tab = time_barrier_tab, 
-#              neg_tab = neg_tab),
+#              time_barrier_tab = time_barrier_tab,
+#              neg_tab = neg_tab, 
+#              time_mesh_tab = time_mesh_tab),
 #         paste0(path, "sim/novayazemlya.RDS"))
 
 #------------------------------------------------------------------------------#
 res <- readRDS(paste0(path, "sim/novayazemlya.RDS"))
 
+# BORA-GP preprocessing time
+colnames(res$time_barrier_tab) <- c("user", "system", "elapsed")
+colMeans(res$time_barrier_tab)
+
+# INLA preprocessing time 
+colnames(res$time_mesh_tab) <- c("user", "system", "elapsed")
+colMeans(res$time_mesh_tab)
+
 # parameter estimation
 (Reduce("+", res$params_tab_list)/rplc) %>% round(3)
 apply(simplify2array(res$params_tab_list), 1:2, sd) %>% round(3)
+
+# average elapsed time for model fitting (sec/iter)
+((Reduce("+", res$params_tab_list)/rplc)[9,]/n.samples) %>% round(3)
 
 # prediction
 (Reduce("+", res$ressum_tab_list)/rplc) %>% round(3)
@@ -662,9 +679,7 @@ gg_4_zoom <- ggpubr::ggarrange(gg_4, gg_nb, nrow = 2)
 # }
 
 # different neighbors
-res1 <- readRDS(paste0(path, "/sim/novayazemlya_seed6.RDS"))
-
-## generate data for the seed
+## generate data for the first seed
 seed <- seedlist[1]
 set.seed(seed)
 idx_tr <- sample(1:n, n_tr, replace = F)
@@ -688,7 +703,7 @@ rownames(coords_tt) <- NULL
 coords_all <- rbind(coords_tr, coords_tt, coords_pred)
 
 ## BORA-GP neighbor
-barrier_nninfo_all <- res1$barrier_nninfo_all
+barrier_nninfo_all <- res2$barrier_nninfo_all
 barrier_nn.indx.0_list <- barrier_nninfo_all$barrier_nn.indx.0_list
 barrier_nn.indx.0 <- do.call("rbind", barrier_nn.indx.0_list)
 barrier_n.indx <- barrier_nninfo_all$barrier_n.indx
@@ -703,17 +718,17 @@ barrier_nninfo <- list(type = "barrier",
 
 ## correlation
 Ctilde <- boraGP:::create_Ctilde(coords = coords_tr,
-                                 neighbor.info = res1$nninfo,
+                                 neighbor.info = res2$nninfo,
                                  sig_sq = 1,
-                                 phi = res1$params_tab[4,2],
-                                 nu = res1$params_tab[5,2],
+                                 phi = res2$params_tab[4,2],
+                                 nu = res2$params_tab[5,2],
                                  base_cov = "matern", cores = 20)
 
 barrier_Ctilde <- boraGP:::create_Ctilde(coords = coords_tr,
                                          neighbor.info = barrier_nninfo,
                                          sig_sq = 1,
-                                         phi = res1$params_tab[4,1],
-                                         nu = res1$params_tab[5,1],
+                                         phi = res2$params_tab[4,1],
+                                         nu = res2$params_tab[5,1],
                                          base_cov = "matern", cores = 20)
 ## preprocessing
 nnidx_tt <- RANN::nn2(coords_tr, coords_tt, k = m)$nn.idx
@@ -733,10 +748,10 @@ for (i in 1:length(pt)) {
   NNGP_cov <- boraGP:::NGPcov_m(v1 = coords_all[n_tr + pt[i],],
                                 v2_mat = coords_all[1:n,],
                                 coords = coords_tr,
-                                neighbor.info = res1$nninfo,
+                                neighbor.info = res2$nninfo,
                                 sig_sq = 1,
-                                phi = res1$params_tab[4,2],
-                                nu = res1$params_tab[5,2],
+                                phi = res2$params_tab[4,2],
+                                nu = res2$params_tab[5,2],
                                 base_cov = "matern",
                                 Ctilde = Ctilde,
                                 coords.0 = coords_tt,
@@ -746,8 +761,8 @@ for (i in 1:length(pt)) {
                                   v2_mat = coords_all[1:n,],
                                   coords = coords_tr, neighbor.info = barrier_nninfo,
                                   sig_sq = 1,
-                                  phi = res1$params_tab[4,1],
-                                  nu = res1$params_tab[5,1],
+                                  phi = res2$params_tab[4,1],
+                                  nu = res2$params_tab[5,1],
                                   base_cov = "matern",
                                   Ctilde = barrier_Ctilde,
                                   coords.0 = coords_tt,
@@ -789,17 +804,17 @@ gg_covall <- ggpubr::ggarrange(gg_cov_list[[1]],
 # }
 
 # # UQ
-# res1$predres %>% 
-#   select(easting, northing, coverB, coverN, coverI) %>% 
-#   pivot_longer(-c(easting, northing), 
-#                values_to = "cover", 
-#                names_to = "model") %>% 
-#   mutate(model = factor(model, 
+# res2$predres %>%
+#   select(easting, northing, coverB, coverN, coverI) %>%
+#   pivot_longer(-c(easting, northing),
+#                values_to = "cover",
+#                names_to = "model") %>%
+#   mutate(model = factor(model,
 #                         levels = c("coverB", "coverN", "coverI"),
-#                         labels = c("BORA-GP", "NNGP", "Barrier SGF")), 
-#          cover = factor(cover, 
+#                         labels = c("BORA-GP", "NNGP", "Barrier SGF")),
+#          cover = factor(cover,
 #                         levels = c("1", "0"),
-#                         labels = c("Yes", "No"))) %>% 
+#                         labels = c("Yes", "No"))) %>%
 #   ggplot() +
 #   geom_point(aes(easting, northing, color = cover)) +
 #   geom_sf(data = rest_utm) +
