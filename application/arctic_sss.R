@@ -5,6 +5,7 @@ rm(list = ls())
 library(tidyverse)
 theme_set(theme_bw())
 library(sf) 
+sf_use_s2(FALSE)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(boraGP)
@@ -126,6 +127,7 @@ gg_arctic <- sss_utm2 %>%
   scale_color_distiller(palette = "RdYlBu", 
                         na.value = "transparent") + 
   labs(x = "", y = "", color = "SSS\n(psu)") +
+  geom_text(x = 650, y = 8600, label = "Novaya\nZemlya") + 
   theme(plot.margin = margin(t = 0, l = 0, r = 0, b = 0))
 
 gg_canada <- sss_utm2 %>%
