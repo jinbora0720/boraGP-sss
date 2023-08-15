@@ -170,6 +170,9 @@ gg <- data.frame(rbind(coords_all, coords_all, coords_all,
   geom_contour_filled(aes(x = easting, y = northing, z = Cov), 
                       breaks = c(seq(0, 0.6, by = 0.1), 0.8, 1)) +
   scale_fill_scico_d(palette = "batlow", begin = 0, end = 1) + 
+  geom_point(data = data.frame(coords_tr, Type = "BORA-GP covariance"), 
+             aes(easting, northing),
+             size = 0.5, color = "grey15", shape = 4) +
   geom_point(data = data.frame(coords_all[n_tr + selectmiddleline,], Pt = 1:3), 
              aes(easting, northing), size = 2) + 
   labs(x = "", y = "", fill = "Cov") + 
@@ -178,7 +181,7 @@ gg <- data.frame(rbind(coords_all, coords_all, coords_all,
         legend.margin=margin(b = 0, r = 0, t = 0, l = 0), 
         strip.background.x = element_blank(),
         strip.text.x = element_blank())
-# for (ext in extension) {
-#   ggsave(plot = gg, paste0(path, "plots/cov_slidingdoors", ext),
-#          width = 7, height = 3.9)
-# }
+for (ext in extension) {
+  ggsave(plot = gg, paste0(path, "plots/cov_slidingdoors", ext),
+         width = 7, height = 3.9)
+}
