@@ -789,8 +789,9 @@ burn <- 10000
 # time_soap <- matrix(0, rplc, 3)
 # beta_soap <- matrix(0, rplc, 2)
 # tausq_soap <- rep(0, rplc)
-# y_soap_array = w_soap_array <- array(0, dim = c(n_tt, 3, rplc)) # mean, 0.025q, 0.975q
+# y_soap_array <- array(0, dim = c(n_tt, 3, rplc)) # mean, 0.025q, 0.975q
 # what_soap <- matrix(0, n_tr, rplc)
+# wstar_soap <- matrix(0, n_tt, rplc)
 # 
 # for (ii in 1:rplc) {
 #   set.seed(seedsave[ii])
@@ -810,42 +811,37 @@ burn <- 10000
 #   w_tt <- data0$w[-(1:n_tr)]
 #   x_tr <- x[1:n_tr]
 #   x_tt <- x[-(1:n_tr)]
-#   
+# 
 #   data_tr <- tibble(coords_tr, x = x_tr, y = y_tr)
 #   data_tt <- tibble(coords_tt, x = x_tt, y = y_tt)
-#   
+# 
 #   data_list[[ii]] <- data0
-#   
+# 
 #   # model fitting
 #   timesoap <- system.time({
 #     soap <- gam(y ~ x + s(easting, northing, bs = "so", xt = list(bnd = faults_soap)),
 #                 data = data_tr, method = "REML", knots = knots)
 #     soap_pred <- predict(soap, newdata = data_tt, se.fit = TRUE, type = "response")
 #   })
-#   
+# 
 #   # time
 #   time_soap[ii,] <- as.numeric(timesoap)[1:3]
-#   
+# 
 #   # parameter estimation, "sigsq", "tausq", "phi"
 #   beta <- soap$coefficients[1:2]
 #   beta_soap[ii,] <- beta
 #   tausq_soap[ii] <- soap$reml.scale
-#   
+# 
 #   # prediction
 #   y_soap <- as.numeric(soap_pred$fit)
 #   soap_sd <- as.numeric(soap_pred$se.fit)
 #   y_soap_low <- y_soap + qnorm(.025)*soap_sd
 #   y_soap_high <- y_soap + qnorm(.975)*soap_sd
 #   y_soap_array[,,ii] <- cbind(y_soap, y_soap_low, y_soap_high)
-#   
+# 
 #   what_soap[,ii] <- soap$fitted.values - cbind(1, x_tr)%*%beta
-#   soap_pred_w <- predict(soap, newdata = data_tt, type = "link", se.fit = TRUE)
-#   wstar_soap <- as.numeric(soap_pred_w$fit) - cbind(1, x_tt)%*%beta
-#   soap_w_sd <- as.numeric(soap_pred_w$se.fit)
-#   wstar_soap_low <- wstar_soap + qnorm(.025)*soap_w_sd
-#   wstar_soap_high <- wstar_soap + qnorm(.975)*soap_w_sd
-#   w_soap_array[,,ii] <- cbind(wstar_soap, wstar_soap_low, wstar_soap_high)
-#   
+#   wstar_soap[,ii] <- y_soap - cbind(1, x_tt)%*%beta
+# 
 #   cat(paste0(ii, "th simulation of soap film smoother completed.\n"))
 # }
 # 
@@ -854,7 +850,7 @@ burn <- 10000
 #              beta_soap = beta_soap,
 #              tausq_soap = tausq_soap,
 #              y_soap_array = y_soap_array,
-#              w_soap_array = w_soap_array,
+#              wstar_soap = wstar_soap,
 #              what_soap = what_soap),
 #         paste0(path, "sim/faults_soap.RDS"))
 # 
@@ -874,17 +870,18 @@ burn <- 10000
 #   # create mesh
 #   mesh_pde <- create.mesh.2D(nodes = rbind(faults_nodes, coords_tr, coords_tt),
 #                              segments = faults_segments)
-#   
+# 
 #   # create the FEM basis
 #   fem_basis <- create.FEM.basis(mesh_pde)
 # })
 # 
 # # save
 # time_pde <- matrix(0, rplc, 3)
-# beta_pde <- matrix(0, rplc, 2)
+# beta_pde <- rep(0, rplc)
 # tausq_pde = lambda_pde <- rep(0, rplc)
-# y_pde_array = w_pde_array <- array(0, dim = c(n_tt, 3, rplc))                   # mean, 0.025q, 0.975q
+# y_pde_array <- array(0, dim = c(n_tt, 3, rplc))                   # mean, 0.025q, 0.975q
 # what_pde <- matrix(0, n_tr, rplc)
+# wstar_pde <- matrix(0, n_tt, rplc)
 # 
 # for (ii in 1:rplc) {
 #   set.seed(seedsave[ii])
@@ -900,49 +897,43 @@ burn <- 10000
 #   #                  base_cov = "matern")
 #   data0 <- data_list[[ii]]
 #   y_tr <- data0$y[1:n_tr]
+#   ybar <- mean(y_tr)
 #   y_tt <- data0$y[-(1:n_tr)]
 #   w_tr <- data0$w[1:n_tr]
 #   w_tt <- data0$w[-(1:n_tr)]
 #   x_tr <- x[1:n_tr]
 #   x_tt <- x[-(1:n_tr)]
-#   
+# 
 #   # fit SR-PDE
 #   timepde <- system.time({
-#     pde <- smooth.FEM(locations = coords_tr, observations = y_tr,
-#                       covariates = cbind(1, x_tr),
+#     pde <- smooth.FEM(locations = coords_tr, 
+#                       observations = y_tr - ybar,                               # mean-center y
+#                       covariates = x_tr,                                        # intercept is not allowed
 #                       FEMbasis = fem_basis, lambda = lambda, GCV = TRUE)
 #   })
-#   
+# 
 #   # best lambda
 #   best <- which.min(pde$GCV)
 #   lambda_pde[ii] <- lambda[best]
-#   
+# 
 #   # time
 #   time_pde[ii,] <- as.numeric(timepde)[1:3]
-#   
+# 
 #   # parameter estimation
 #   beta <- as.numeric(pde$beta[,best])
 #   tau <- pde$stderr[best]
-#   beta_pde[ii,] <- beta
+#   beta_pde[ii] <- beta
 #   tausq_pde[ii] <- tau^2
-#   
+# 
 #   # prediction
-#   y_pde <- cbind(1, x_tt)%*%beta + 
-#     as.numeric(pde$fit.FEM$coeff[(nrow(faults_nodes) + n_tr) + 1:n_tt, best])
+#   what_pde[,ii] <- as.numeric(pde$fit.FEM$coeff[nrow(faults_nodes) + 1:n_tr, best])
+#   wstar_pde[,ii] <- as.numeric(pde$fit.FEM$coeff[(nrow(faults_nodes) + n_tr) + 1:n_tt, best])
+#   
+#   y_pde <- ybar + x_tt*beta + wstar_pde[,ii]
 #   y_pde_low <- y_pde + qnorm(.025)*tau
 #   y_pde_high <- y_pde + qnorm(.975)*tau
 #   y_pde_array[,,ii] <- cbind(y_pde, y_pde_low, y_pde_high)
-#   
-#   pde_w <- smooth.FEM(locations = coords_tr, observations = y_tr,
-#                       FEMbasis = fem_basis, lambda = lambda, GCV = TRUE)
-#   best_w <- which.min(pde_w$GCV)
-#   what_pde[,ii] <- as.numeric(pde_w$fit.FEM$coeff[nrow(faults_nodes) + 1:n_tr, best_w])
-#   wstar_pde <- as.numeric(pde_w$fit.FEM$coeff[(nrow(faults_nodes) + n_tr) + 1:n_tt, best_w])
-#   pde_w_sd <- pde_w$stderr[best_w]
-#   wstar_pde_low <- wstar_pde + qnorm(.025)*pde_w_sd
-#   wstar_pde_high <- wstar_pde + qnorm(.975)*pde_w_sd
-#   w_pde_array[,,ii] <- cbind(wstar_pde, wstar_pde_low, wstar_pde_high)
-#   
+# 
 #   cat(paste0(ii, "th simulation of SR-PDE completed.\n"))
 # }
 # 
@@ -952,7 +943,7 @@ burn <- 10000
 #              tausq_pde = tausq_pde,
 #              lambda_pde = lambda_pde,
 #              y_pde_array = y_pde_array,
-#              w_pde_array = w_pde_array,
+#              wstar_pde = wstar_pde,
 #              what_pde = what_pde),
 #         paste0(path, "sim/faults_pde.RDS"))
 # 
@@ -1234,8 +1225,8 @@ apply(tabres$spn_tab, 2, sd) %>% round(3)
 # beta
 colMeans(resSOAP$beta_soap) %>% round(3)
 apply(resSOAP$beta_soap, 2, sd) %>% round(3)
-colMeans(resPDE$beta_pde) %>% round(3)
-apply(resPDE$beta_pde, 2, sd) %>% round(3)
+mean(resPDE$beta_pde) %>% round(3)
+sd(resPDE$beta_pde) %>% round(3)
 colMeans(resPD$beta_closePD) %>% round(3)
 apply(resPD$beta_closePD, 2, sd) %>% round(3)
 
@@ -1334,9 +1325,9 @@ datatmp[datatmp$model == "NNGP: latent, m=15", "model"] <- "NNGP"
 w_tr <- resSOAP$data_list[[ii]]$w[1:n_tr]
 w_tt <- resSOAP$data_list[[ii]]$w[-(1:n_tr)]
 whatSOAP <- resSOAP$what_soap[,ii]
-wstarSOAP <- resSOAP$w_soap_array[,1,ii]
+wstarSOAP <- resSOAP$wstar_soap[,ii]
 whatPDE <- resPDE$what_pde[,ii]
-wstarPDE <- resPDE$w_pde_array[,1,ii]
+wstarPDE <- resPDE$wstar_pde[,ii]
 
 datatmp2 <- data.frame(easting = rep(coords_all$easting, times = 2),
                        northing = rep(coords_all$northing, times = 2),
