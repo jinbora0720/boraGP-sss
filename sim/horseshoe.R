@@ -531,7 +531,7 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 #   colnames(predres_tmp) <- c("rmspe", "mape", "coverage", "meanwidth")
 #   colnames(paramres_tmp) <- c("beta", "sigsq", "tausq", "phi")
 #   seedlist <- seedmat %>% filter(M == m, N_tr == n_tr) %>%
-#     dyplr::select(seed) %>% unlist() %>% as.numeric()
+#     dplyr::select(seed) %>% unlist() %>% as.numeric()
 #   
 #   for (s in 1:rplc) {
 #     seed <- seedlist[s]
@@ -608,11 +608,11 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 # #--------#
 # # SR-PDE #
 # #--------#
-# # link 
+# # link
 # # https://onlinelibrary.wiley.com/doi/epdf/10.1111/insr.12444
 # # https://academic.oup.com/jrsssb/article/75/4/681/7075920
 # 
-# # boundary nodes 
+# # boundary nodes
 # hs_nodes <- cbind(fsb$x, fsb$y)
 # colnames(hs_nodes) <- c("easting", "northing")
 # hs_segments <- cbind(1:length(fsb$x), c(2:length(fsb$y),1))
@@ -635,13 +635,13 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 #   # save results
 #   lambda_tmp <- rep(0, rplc)
 #   timeres_tmp = timepre_tmp <- matrix(0, nrow = rplc, ncol = 3)
-#   colnames(timeres_tmp) = colnames(timepre_tmp) <- 
+#   colnames(timeres_tmp) = colnames(timepre_tmp) <-
 #     c("user", "system", "elapsed")
 #   predres_tmp = paramres_tmp <- matrix(NA, nrow = rplc, ncol = 4)
 #   colnames(predres_tmp) <- c("rmspe", "mape", "coverage", "meanwidth")
 #   colnames(paramres_tmp) <- c("beta", "sigsq", "tausq", "phi")
 #   seedlist <- seedmat %>% filter(M == m, N_tr == n_tr) %>%
-#     dyplr::select(seed) %>% unlist() %>% as.numeric()
+#     dplyr::select(seed) %>% unlist() %>% as.numeric()
 # 
 #   for (s in 1:rplc) {
 #     seed <- seedlist[s]
@@ -652,44 +652,42 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 #     coords_tr <- data_hs[idx_tr, c("easting", "northing")]
 #     rownames(coords_tr) <- NULL
 #     y_tr <- data_hs[idx_tr,"y"]
-#     data_tr <- tibble(coords_tr, y = y_tr)
-#     
+#     ybar <- mean(y_tr)
+# 
 #     # test data
 #     coords_tt <- data_hs[-idx_tr, c("easting", "northing")]
 #     rownames(coords_tt) <- NULL
 #     y_tt <- data_hs[-idx_tr,"y"]
-#     data_tt <- tibble(coords_tt, y = y_tt)
-#     
+# 
 #     # preprocessing
 #     time_pre_pde <- system.time({
 #       # create mesh
-#       mesh_pde <- create.mesh.2D(nodes = rbind(hs_nodes, coords_tr, coords_tt), 
+#       mesh_pde <- create.mesh.2D(nodes = rbind(hs_nodes, coords_tr, coords_tt),
 #                                  segments = hs_segments)
-#       
-#       # create the FEM basis 
+# 
+#       # create the FEM basis
 #       fem_basis <- create.FEM.basis(mesh_pde)
 #     })
-#     
+# 
 #     time_pde <- system.time({
 #       # fit SR-PDE
-#       pde <- smooth.FEM(locations = coords_tr, observations = y_tr,
-#                         covariates = matrix(1, n_tr, 1),
+#       pde <- smooth.FEM(locations = coords_tr, 
+#                         observations = y_tr - ybar,                             # mean-center y
 #                         FEMbasis = fem_basis, lambda = lambda, GCV = TRUE)
 #     })
-#     
+# 
 #     # best lambda
 #     best <- which.min(pde$GCV)
 #     lambda_tmp[s] <- lambda[best]
-#     
+# 
 #     # time
 #     timepre_tmp[s,] <- as.numeric(time_pre_pde)[1:3]
 #     timeres_tmp[s,] <- as.numeric(time_pde)[1:3]
 # 
-#     # summary results 
-#     beta <- as.numeric(pde$beta[,best])
+#     # summary results
 #     tau <- pde$stderr[best]
-#     w_pde <- as.numeric(pde$fit.FEM$coeff[(nrow(hs_nodes) + n_tr) + 1:n_tt, best])
-#     y_pde <- beta + w_pde
+#     y_pde <- ybar + 
+#       as.numeric(pde$fit.FEM$coeff[(nrow(hs_nodes) + n_tr) + 1:n_tt, best])
 #     y_pde_low <- y_pde + qnorm(.025)*tau
 #     y_pde_high <- y_pde + qnorm(.975)*tau
 #     predres_tmp[s,] <- data.frame(y_tt = y_tt, yhat = y_pde,
@@ -703,9 +701,6 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 #                 meanwidth = mean(width)) %>%
 #       as.numeric()
 # 
-#     ## beta
-#     paramres_tmp[s,1] <- beta
-#     
 #     ## tausq
 #     paramres_tmp[s,3] <- tau^2
 # 
@@ -719,7 +714,7 @@ seedmat <- data.frame(M = rep(mlist, each = rplc*length(ntrlist)),
 #   paramres[[listname]] <- paramres_tmp
 # }
 # 
-# saveRDS(list(lambda_pde = lambda_pde, timepre = timepre, 
+# saveRDS(list(lambda_pde = lambda_pde, timepre = timepre,
 #              timeres = timeres, predres = predres,
 #              paramres = paramres, seedmat = seedmat),
 #         paste0(path, "sim/horseshoe_pde.RDS"))
@@ -1020,11 +1015,11 @@ for (i in 1:4) {
                              m = rep(mlist, each = rplc*length(ntrlist)),
                              model = "Barrier SGF",
                              vals = rep(c(sapply(resinla$predres,
-                                                 function(x) x[,i])), 
+                                                 function(x) x[,i])),
                                         times = length(mlist)),
                              what = resnames[i],
                              vals2 = rep(c(sapply(resinla$paramres,
-                                                  function(x) x[,i])), 
+                                                  function(x) x[,i])),
                                          times = length(mlist)),
                              what2 = parnames[i])
   dfSOAPL[[i]] <- data.frame(n = rep(rep(ntrlist, each = rplc),
@@ -1032,11 +1027,11 @@ for (i in 1:4) {
                              m = rep(mlist, each = rplc*length(ntrlist)),
                              model = "Soap film smoother",
                              vals = rep(c(sapply(resSOAP$predres,
-                                                 function(x) x[,i])), 
+                                                 function(x) x[,i])),
                                         times = length(mlist)),
                              what = resnames[i],
                              vals2 = rep(c(sapply(resSOAP$paramres,
-                                                  function(x) x[,i])), 
+                                                  function(x) x[,i])),
                                          times = length(mlist)),
                              what2 = parnames[i])
   dfPDEL[[i]] <- data.frame(n = rep(rep(ntrlist, each = rplc),
@@ -1044,11 +1039,11 @@ for (i in 1:4) {
                             m = rep(mlist, each = rplc*length(ntrlist)),
                             model = "SR-PDE",
                             vals = rep(c(sapply(resPDE$predres,
-                                                function(x) x[,i])), 
+                                                function(x) x[,i])),
                                        times = length(mlist)),
                             what = resnames[i],
                             vals2 = rep(c(sapply(resPDE$paramres,
-                                                 function(x) x[,i])), 
+                                                 function(x) x[,i])),
                                         times = length(mlist)),
                             what2 = parnames[i])
   dfMDSL[[i]] <- data.frame(n = rep(rep(ntrlist, each = rplc),
@@ -1056,11 +1051,11 @@ for (i in 1:4) {
                             m = rep(mlist, each = rplc*length(ntrlist)),
                             model = "MDSdist",
                             vals = rep(c(sapply(resMDS$predres,
-                                                function(x) x[,i])), 
+                                                function(x) x[,i])),
                                        times = length(mlist)),
                             what = resnames[i],
                             vals2 = rep(c(sapply(resMDS$paramres,
-                                                 function(x) x[,i])), 
+                                                 function(x) x[,i])),
                                         times = length(mlist)),
                             what2 = parnames[i])
   dfPDL[[i]] <- data.frame(n = rep(rep(ntrlist, each = rplc),
@@ -1068,11 +1063,11 @@ for (i in 1:4) {
                            m = rep(mlist, each = rplc*length(ntrlist)),
                            model = "ClosePD",
                            vals = rep(c(sapply(resPD$predres,
-                                               function(x) x[,i])), 
+                                               function(x) x[,i])),
                                       times = length(mlist)),
                            what = resnames[i],
                            vals2 = rep(c(sapply(resPD$paramres,
-                                                function(x) x[,i])), 
+                                                function(x) x[,i])),
                                        times = length(mlist)),
                            what2 = parnames[i])
 }
@@ -1113,14 +1108,14 @@ dfres_sum$m[dfres_sum$model == "BORA-GP"] <-
 dfres_sum$m[dfres_sum$model == "SR-PDE"] <-
   dfres_sum$m[dfres_sum$model == "SR-PDE"] + 0.5
 
-sumplot1 <- dfres_sum %>% 
-  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF")) %>% 
-  mutate(model = factor(model, levels = 
-                          c("BORA-GP", "NNGP", "Barrier SGF"))) %>%
+sumplot1 <- dfres_sum %>%
+  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE")) %>%
+  mutate(model = factor(model, levels =
+                          c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE"))) %>%
   filter(what == "RMSPE") %>%
   ggplot() +
   geom_line(aes(m, vals_mean, col = model, linetype = model)) +
-  geom_errorbar(aes(m, ymin = vals_low, ymax = vals_hi, 
+  geom_errorbar(aes(m, ymin = vals_low, ymax = vals_hi,
                     col = model, linetype = model), width = 0.5) +
   geom_point(aes(m, vals_mean, col = model), size = 2) +
   facet_grid(what ~
@@ -1132,10 +1127,10 @@ sumplot1 <- dfres_sum %>%
         legend.margin=margin(b=0,r=0,t=0,l=-3)) +
   scale_x_continuous(breaks = c(10,15,20), labels = c("m = 10", "m = 15", "m = 20"))
 
-sumplot2 <- dfres %>% 
-  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF")) %>% 
-  mutate(model = factor(model, levels = 
-                          c("BORA-GP", "NNGP", "Barrier SGF")),
+sumplot2 <- dfres %>%
+  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE")) %>%
+  mutate(model = factor(model, levels =
+                          c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE")),
          m = factor(m, levels = c("10", "15", "20"),
                     labels = c("m = 10", "m = 15", "m = 20"))) %>%
   filter(what == "95% CI coverage") %>%
@@ -1154,17 +1149,17 @@ sumplot2 <- dfres %>%
 gg <- ggpubr::ggarrange(sumplot1, sumplot2, nrow = 2)
 # for (ext in extension) {
 #   ggsave(plot = gg,
-#          paste0(path, "plots/horseshoe_pred", ext),
+#          paste0(path, "plots/horseshoe_pred_wSRPDE", ext),
 #          width = 9, height = 4)
 # }
 
 sumplot3 <- dfres_sum %>%
-  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF"), 
-         what %in% c("MAPE", "Mean 95% CI width")) %>% 
-  mutate(model = factor(model, levels = c("BORA-GP", "NNGP", "Barrier SGF"))) %>%
+  filter(model %in% c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE"),
+         what %in% c("MAPE", "Mean 95% CI width")) %>%
+  mutate(model = factor(model, levels = c("BORA-GP", "NNGP", "Barrier SGF", "SR-PDE"))) %>%
   ggplot() +
   geom_line(aes(m, vals_mean, col = model, linetype = model)) +
-  geom_errorbar(aes(m, ymin = vals_low, ymax = vals_hi, 
+  geom_errorbar(aes(m, ymin = vals_low, ymax = vals_hi,
                     col = model, linetype = model), width = 0.5) +
   geom_point(aes(m, vals_mean, col = model), size = 2) +
   facet_grid(factor(what, levels = c("MAPE", "Mean 95% CI width"),
@@ -1179,7 +1174,7 @@ sumplot3 <- dfres_sum %>%
   scale_x_continuous(breaks = c(10,15,20), labels = c("m = 10", "m = 15", "m = 20"))
 # for (ext in extension) {
 #   ggsave(plot = sumplot3,
-#          paste0(path, "plots/horseshoe_pred_supp", ext),
+#          paste0(path, "plots/horseshoe_pred_supp_wSRPDE", ext),
 #          width = 9, height = 3.5)
 # }
 
@@ -1244,6 +1239,7 @@ coords_tr <- data_hs[idx_tr, c("easting", "northing")]
 rownames(coords_tr) <- NULL
 w_tr <- data_hs[idx_tr,"w"]
 y_tr <- data_hs[idx_tr,"y"]
+ybar <- mean(y_tr)
 
 # ordering (default)
 ord <- order(coords_tr[,1])
@@ -1257,7 +1253,7 @@ y_tt <- data_hs[-idx_tr,"y"]
 coords_all <- rbind(coords_tr, coords_tt)
 
 # # run models
-set.seed(seedlist[27])
+# set.seed(seedlist[27])
 # time_nb <- system.time(
 #   barrier_nninfo_all <- barrier_neighbor(coords = coords_tr,
 #                                          coords.0 = coords_tt,
@@ -1361,54 +1357,54 @@ set.seed(seedlist[27])
 #               family="gaussian",
 #               control.inla= list(int.strategy = "eb"), num.threads = 10)
 # })
-# 
+#
 # # soap film smoother
 # data_tr <- tibble(coords_tr, y = y_tr)
 # data_tt <- tibble(coords_tt, y = y_tt)
-# 
+#
 # # knots
 # test <- mgcv::fs.test(x = coords_tr$easting, y = coords_tr$northing,
 #                       r0 = 0.15)
 # knots <- coords_tr[-which(is.na(test)),]
-# 
+#
 # # model fitting
 # time_soap <- system.time({
 #   soap <- gam(y ~ s(easting, northing, bs = "so", xt = list(bnd = hs_soap)),
 #               data = data_tr, method = "REML", knots = knots)
 # })
-# 
+#
 # # SR-PDE
 # # preprocessing
 # time_pre_pde <- system.time({
 #   # create mesh
 #   mesh_pde <- create.mesh.2D(nodes = rbind(hs_nodes, coords_tr, coords_tt),
 #                              segments = hs_segments)
-#   
+#
 #   # create the FEM basis
 #   fem_basis <- create.FEM.basis(mesh_pde)
 # })
-# 
+#
 # time_pde <- system.time({
 #   # fit SR-PDE
-#   pde <- smooth.FEM(locations = coords_tr, observations = y_tr,
+#   pde <- smooth.FEM(locations = coords_tr, observations = y_tr - ybar,
 #                     FEMbasis = fem_basis, lambda = lambda, GCV = TRUE)
 # })
 # best <- which.min(pde$GCV)
-# 
+#
 # # MDSdist (since tau^2 is estimated to be 0)
 # # estimate waterdistance
 # waterdist <- costDistance(hs_tl, as.matrix(coords_tr))
-# 
+#
 # ## some are Inf with which eigenvalues are not computable for MDS-transformed distance
 # ## Replace Inf with maximum value
 # waterdist2 <- waterdist
 # waterdist2[waterdist2 == Inf] <- waterdist_max
-# 
+#
 # # MDS-transformed distance
 # mds <- cmdscale(waterdist2, k = n_tr-1, eig = T, x.ret = TRUE)
 # # caluclating distance between MDS points (automatically limited to positive eigenvalues)
 # distMDS <- dist(mds$points)
-# 
+#
 # data_tr_geo <- as.geodata(tibble(coords_tr, y = y_tr),
 #                           coords.col = 1:2, data.col = 3)
 # variog_MDSdist <- variogNE(geodata = data_tr_geo,
@@ -1421,12 +1417,12 @@ set.seed(seedlist[27])
 #                             dist = distMDS_all,
 #                             model = "matern", MDSgamma = FALSE)
 # cov_MDSdist <- max(semi_MDSdist[[1]]) - semi_MDSdist[[1]]
-# 
+#
 # MDSdist <- krigeNE(geodata = data_tr_geo, locations = coords_tt,
 #                    covariance = cov_MDSdist,
 #                    krige = krige.control(obj.model = vfit_MDSdist),
 #                    cv = -idx_tr)
-# 
+#
 # # ClosePD (since tau^2 is estimated to be 0)
 # variog_NEuc <- variogNE(geodata = data_tr_geo,
 #                         max.dist = max(waterdist2),
@@ -1439,16 +1435,16 @@ set.seed(seedlist[27])
 #                          model = "matern", MDSgamma = FALSE)
 # cov_NEuc <- max(semi_NEuc[[1]]) - semi_NEuc[[1]]
 # cov_closePD <- posdefify(cov_NEuc, eps.ev = 1e-07)
-# 
+#
 # closePD <- krigeNE(geodata = data_tr_geo, locations = coords_tt,
 #                    covariance = cov_closePD,
 #                    krige = krige.control(obj.model = vfit_NEuc),
 #                    cv = -idx_tr)
-# 
+#
 # saveRDS(list(barrier_m.s = barrier_m.s, barrier_p.s = barrier_p.s,
-#              m.s = m.s, p.s = p.s, res = res, 
-#              pde = pde, soap = soap, 
-#              MDSdist = MDSdist, 
+#              m.s = m.s, p.s = p.s, res = res,
+#              pde = pde, soap = soap,
+#              MDSdist = MDSdist,
 #              closePD = closePD),
 #         paste0(path, "sim/horseshoe_latent.RDS"))
 #
@@ -1465,23 +1461,23 @@ set.seed(seedlist[27])
 # winla <- inla.mesh.project(wproj, res$summary.random$s)[,"mean"] +
 #   res$summary.fixed$mean
 # whatSOAP <- soap$fitted.values - soap$coefficients[1]
-# wstarSOAP <- as.numeric(predict(soap, newdata = data_tt, type = "link")) - 
+# wstarSOAP <- as.numeric(predict(soap, newdata = data_tt, type = "link")) -
 #   soap$coefficients[1]
-# whatPDE <- as.numeric(pde$fit.FEM$coeff[nrow(hs_nodes) + 1:n_tr, best]) 
-# wstarPDE <- as.numeric(pde$fit.FEM$coeff[(nrow(hs_nodes) + n_tr) + 1:n_tt, best]) 
+# whatPDE <- as.numeric(pde$fit.FEM$coeff[nrow(hs_nodes) + 1:n_tr, best])
+# wstarPDE <- as.numeric(pde$fit.FEM$coeff[(nrow(hs_nodes) + n_tr) + 1:n_tt, best])
 # wstarMDS <- MDSdist$predict
 # wstarPD <- closePD$predict
-# 
+#
 # saveRDS(list(whatBRGP = whatBRGP,
 #              wstarBRGP = wstarBRGP,
 #              whatNNGP = whatNNGP,
 #              wstarNNGP = wstarNNGP,
-#              winla = winla, 
-#              whatSOAP = whatSOAP, 
-#              wstarSOAP = wstarSOAP, 
-#              whatPDE = whatPDE, 
-#              wstarPDE = wstarPDE, 
-#              wstarMDS = wstarMDS, 
+#              winla = winla,
+#              whatSOAP = whatSOAP,
+#              wstarSOAP = wstarSOAP,
+#              whatPDE = whatPDE,
+#              wstarPDE = wstarPDE,
+#              wstarMDS = wstarMDS,
 #              wstarPD = wstarPD),
 #         paste0(path, "sim/horseshoe_latent_res.RDS"))
 
@@ -1501,21 +1497,21 @@ wstarPD <- latent_res$wstarPD
 
 gg_w <- data.frame(easting = rep(coords_all$easting, times = 8),
                    northing = rep(coords_all$northing, times = 8),
-                   what = c(w_tr, w_tt, 
-                            whatNNGP, wstarNNGP, 
-                            whatBRGP, wstarBRGP, 
-                            winla, 
-                            whatSOAP, wstarSOAP, 
-                            whatPDE, wstarPDE, 
-                            w_tr, wstarMDS, 
+                   what = c(w_tr, w_tt,
+                            whatNNGP, wstarNNGP,
+                            whatBRGP, wstarBRGP,
+                            winla,
+                            whatSOAP, wstarSOAP,
+                            whatPDE, wstarPDE,
+                            w_tr, wstarMDS,
                             w_tr, wstarPD),
-                   model = rep(c("Truth", "NNGP", "BORA-GP", "Barrier SGF", 
-                                 "Soap film smoother", "SR-PDE", 
+                   model = rep(c("Truth", "NNGP", "BORA-GP", "Barrier SGF",
+                                 "Soap film smoother", "SR-PDE",
                                  "MDSdist", "ClosePD"), each = n)) %>%
   ggplot() +
   facet_wrap(~factor(model,
-                     levels = c("Truth", "NNGP", "BORA-GP", "Barrier SGF", 
-                                "Soap film smoother", "SR-PDE", 
+                     levels = c("Truth", "NNGP", "BORA-GP", "Barrier SGF",
+                                "Soap film smoother", "SR-PDE",
                                 "MDSdist", "ClosePD")),
              nrow = 2) +
   geom_raster(aes(easting, northing, fill = what)) +
