@@ -3,7 +3,7 @@ BORA-GP
 
 # Work flow to reproduce manuscript results
 
--   Manuscript available at https://arxiv.org/abs/2210.03913.
+-   Paper available at http://dx.doi.org/10.1214/23-AOAS1850.
 -   Section "BORA-GP"
     -   /cov/slidingdoors.R 
 -   Section “Model comparisons”
